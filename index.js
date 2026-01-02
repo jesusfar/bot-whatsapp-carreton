@@ -15,15 +15,15 @@ async function iniciarBot() {
     auth: state,
     printQRInTerminal: false,
     logger: pino({ level: 'silent' }),
-    browser: ['Bot WhatsApp', 'Chrome', '1.0.0'],
+    browser: ['Ubuntu', 'Chrome', '20.0.04'],
     syncFullHistory: false,
-    defaultQueryTimeoutMs: undefined,
-    keepAliveIntervalMs: 10000,
+    defaultQueryTimeoutMs: 60000,
+    keepAliveIntervalMs: 30000,
     connectTimeoutMs: 60000,
-    qrTimeout: 60000,
+    qrTimeout: 45000,
     emitOwnEvents: false,
-    markOnlineOnConnect: true,
-    fireInitQueries: false,
+    markOnlineOnConnect: false,
+    fireInitQueries: true,
     generateHighQualityLinkPreview: false
   })
 
@@ -36,7 +36,7 @@ async function iniciarBot() {
       console.clear()
       qrcode.generate(qr, { small: true })
       console.log('\n📱 Escaneá este QR con WhatsApp')
-      console.log('⏰ Tienes 60 segundos\n')
+      console.log('⏰ Tienes 45 segundos\n')
     }
 
     if (connection === 'close') {
