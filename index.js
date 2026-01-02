@@ -167,11 +167,21 @@ async function iniciarBot() {
         if (tieneClaveValida) {
           const nombre = msg.pushName || 'Usuario'
           
+          // Reenviar al grupo destino
           await sock.sendMessage(GRUPO_DESTINO, {
             text: `📩 *Mensaje reenviado*\n👤 ${nombre}\n\n${texto}`
           })
 
           console.log(`✅ Mensaje reenviado de ${nombre}`)
+
+          // Confirmar en el grupo origen
+          await sock.sendMessage(GRUPO_ORIGEN, {
+            text: '✅ Su pedido fue pasado'
+          }, {
+            quoted: msg // Responde al mensaje original
+          })
+
+          console.log('✅ Confirmación enviada al grupo origen')
         }
       } catch (error) {
         console.error('❌ Error:', error.message)
