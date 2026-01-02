@@ -1,10 +1,10 @@
 {
-  "name": "bot-whatsapp",
+  "name": "bot-carreton",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",
@@ -16,3 +16,4 @@
     "qrcode-terminal": "^0.12.0"
   }
 }
+
