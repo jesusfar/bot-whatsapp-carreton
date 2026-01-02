@@ -6,7 +6,7 @@ const pino = require('pino')
 let GRUPO_ORIGEN = null
 let GRUPO_DESTINO = null
 
-const PALABRAS_CLAVE = ['solicito', 'solicita', 'fecha', 'hora']
+const PALABRAS_CLAVE = ['solicito', 'solicita', 'fecha', 'hora', 'cambia', 'cambio', 'nuevo']
 
 async function iniciarBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
