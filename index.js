@@ -6,7 +6,22 @@ const pino = require('pino')
 let GRUPO_ORIGEN = null
 let GRUPO_DESTINO = null
 
-const PALABRAS_CLAVE = ['solicito', 'solicita', 'fecha', 'hora', 'cambia', 'cambio', 'nuevo']
+const PALABRAS_CLAVE = ['solicito', 'solicita', 'fecha', 'hora']
+const PALABRAS_CANCELACION = [
+  'cancelado', 
+  'cancelo', 
+  'canceló', 
+  'suspendido', 
+  'suspende', 
+  'anulado', 
+  'anula',
+  'se suspende',
+  'suspender',
+  'cancelar'
+]
+
+// Almacenar mensajes enviados para poder referenciarlos
+const mensajesEnviados = new Map()
 
 async function iniciarBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth')
@@ -34,6 +49,10 @@ async function iniciarBot() {
 
     if (qr) {
       console.clear()
+      console.log('\n========== CÓDIGO QR ==========')
+      console.log(qr)
+      console.log('================================\n')
+      console.log('📱 Copia el código de arriba y pégalo en https://qr.io/ para generar el QR\n')
       qrcode.generate(qr, { small: true })
       console.log('\n📱 Escaneá este QR con WhatsApp')
       console.log('⏰ Tienes 45 segundos\n')
@@ -62,14 +81,16 @@ async function iniciarBot() {
       console.log('📋 Comandos disponibles:')
       console.log('   !setorigen  - Configura grupo origen')
       console.log('   !setdestino - Configura grupo destino')
-      console.log('   !status     - Ver configuración\n')
-      console.log('🔑 Palabras clave:', PALABRAS_CLAVE.join(', '))
+      console.log('   !status     - Ver configuración')
+      console.log('   !logout     - Cerrar sesión del bot\n')
+      console.log('🔑 Palabras clave (reenvío):', PALABRAS_CLAVE.join(', '))
+      console.log('🚫 Palabras clave (cancelación):', PALABRAS_CANCELACION.join(', '))
       console.log('\n🤖 Bot activo - Escuchando mensajes...\n')
     }
   })
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    console.log('📥 Evento recibido - Tipo:', type) // DEBUG
+    console.log('📥 Evento recibido - Tipo:', type)
     
     if (type !== 'notify') {
       console.log('⏭️  Ignorado: no es tipo notify')
@@ -77,15 +98,15 @@ async function iniciarBot() {
     }
 
     const msg = messages[0]
-    console.log('📨 Mensaje detectado') // DEBUG
+    console.log('📨 Mensaje detectado')
     
     if (!msg?.message) {
       console.log('⏭️  Ignorado: sin contenido')
       return
     }
 
-    console.log('📍 Chat ID:', msg.key.remoteJid) // DEBUG
-    console.log('👤 De mí:', msg.key.fromMe) // DEBUG
+    console.log('📍 Chat ID:', msg.key.remoteJid)
+    console.log('👤 De mí:', msg.key.fromMe)
     
     if (!msg.key.remoteJid?.endsWith('@g.us')) {
       console.log('⏭️  Ignorado: no es grupo')
@@ -104,8 +125,8 @@ async function iniciarBot() {
       msg.message.videoMessage?.caption ||
       ''
 
-    console.log('💬 Texto recibido:', texto) // DEBUG
-    console.log('') // Línea en blanco
+    console.log('💬 Texto recibido:', texto)
+    console.log('')
 
     const grupoActual = msg.key.remoteJid
 
@@ -116,7 +137,8 @@ async function iniciarBot() {
       await sock.sendMessage(grupoActual, {
         text: '✅ *Grupo Origen Configurado*\n\n' +
               `ID: ${grupoActual}\n\n` +
-              `Palabras clave: ${PALABRAS_CLAVE.join(', ')}`
+              `Palabras clave (reenvío): ${PALABRAS_CLAVE.join(', ')}\n` +
+              `Palabras clave (cancelación): ${PALABRAS_CANCELACION.join(', ')}`
       })
       console.log('✅ Grupo origen configurado:', GRUPO_ORIGEN)
       return
@@ -128,10 +150,20 @@ async function iniciarBot() {
       await sock.sendMessage(grupoActual, {
         text: '✅ *Grupo Destino Configurado*\n\n' +
               `ID: ${grupoActual}\n\n` +
-              'Aquí llegarán los mensajes reenviados.'
+              'Aquí llegarán los mensajes reenviados y notificaciones de cancelación.'
       })
       console.log('✅ Grupo destino configurado:', GRUPO_DESTINO)
       return
+    }
+
+    if (texto.toLowerCase().trim() === '!logout') {
+      console.log('🚪 Cerrando sesión...')
+      await sock.sendMessage(grupoActual, {
+        text: '👋 Bot desconectado. Elimina la carpeta "auth" si quieres reconectar con otro número.'
+      })
+      await sock.logout()
+      console.log('✅ Sesión cerrada\n')
+      process.exit(0)
     }
 
     if (texto.toLowerCase().trim() === '!status') {
@@ -143,13 +175,15 @@ async function iniciarBot() {
         text: `📊 *Estado del Bot*\n\n` +
               `Grupo Origen:\n${origenConfig}\n\n` +
               `Grupo Destino:\n${destinoConfig}\n\n` +
-              `Palabras clave: ${PALABRAS_CLAVE.join(', ')}\n\n` +
+              `Palabras clave (reenvío): ${PALABRAS_CLAVE.join(', ')}\n` +
+              `Palabras clave (cancelación): ${PALABRAS_CANCELACION.join(', ')}\n\n` +
+              `Pedidos registrados: ${mensajesEnviados.size}\n\n` +
               `${GRUPO_ORIGEN && GRUPO_DESTINO ? '🟢 Bot listo para funcionar' : '🔴 Configura ambos grupos'}`
       })
       return
     }
 
-    // Lógica de reenvío
+    // Lógica de reenvío y cancelación
     if (!GRUPO_ORIGEN || !GRUPO_DESTINO) {
       console.log('⏭️  Bot no configurado aún')
       return
@@ -158,6 +192,35 @@ async function iniciarBot() {
     if (grupoActual === GRUPO_ORIGEN) {
       try {
         const textoLower = texto.toLowerCase()
+        
+        // Verificar si es una CANCELACIÓN
+        const esCancelacion = PALABRAS_CANCELACION.some(palabra => 
+          textoLower.includes(palabra)
+        )
+
+        if (esCancelacion) {
+          console.log('🚫 Detectada cancelación')
+          const nombre = msg.pushName || 'Usuario'
+          
+          // Intentar extraer información del pedido cancelado
+          let infoPedido = texto
+          
+          // Buscar si menciona algún pedido anterior
+          const match = texto.match(/pedido\s*#?\s*(\d+)|solicitud\s*#?\s*(\d+)/i)
+          const numeroPedido = match ? (match[1] || match[2]) : null
+          
+          await sock.sendMessage(GRUPO_DESTINO, {
+            text: `🚫 *PEDIDO CANCELADO/SUSPENDIDO*\n\n` +
+                  `👤 Cancelado por: ${nombre}\n` +
+                  (numeroPedido ? `🔢 Pedido #${numeroPedido}\n\n` : '\n') +
+                  `📝 Motivo/Detalles:\n${texto}`
+          })
+
+          console.log(`🚫 Cancelación notificada - Usuario: ${nombre}`)
+          return
+        }
+
+        // Verificar si tiene palabras clave de SOLICITUD
         const tieneClaveValida = PALABRAS_CLAVE.some(clave => 
           textoLower.includes(clave)
         )
@@ -166,22 +229,28 @@ async function iniciarBot() {
 
         if (tieneClaveValida) {
           const nombre = msg.pushName || 'Usuario'
+          const timestamp = new Date().toLocaleString('es-AR')
           
-          // Reenviar al grupo destino
+          // Generar un ID único para este pedido
+          const pedidoId = `${Date.now()}-${msg.key.id.substring(0, 8)}`
+          
           await sock.sendMessage(GRUPO_DESTINO, {
-            text: `📩 *Mensaje reenviado*\n👤 ${nombre}\n\n${texto}`
+            text: `📩 *Mensaje reenviado*\n` +
+                  `👤 ${nombre}\n` +
+                  `🕐 ${timestamp}\n` +
+                  `🔢 ID: ${pedidoId}\n\n` +
+                  `${texto}`
           })
 
-          console.log(`✅ Mensaje reenviado de ${nombre}`)
-
-          // Confirmar en el grupo origen
-          await sock.sendMessage(GRUPO_ORIGEN, {
-            text: '✅ Su pedido fue pasado'
-          }, {
-            quoted: msg // Responde al mensaje original
+          // Guardar referencia del mensaje
+          mensajesEnviados.set(pedidoId, {
+            nombre,
+            texto,
+            timestamp,
+            mensajeOriginal: msg.key.id
           })
 
-          console.log('✅ Confirmación enviada al grupo origen')
+          console.log(`✅ Mensaje reenviado de ${nombre} - ID: ${pedidoId}`)
         }
       } catch (error) {
         console.error('❌ Error:', error.message)
@@ -195,3 +264,4 @@ async function iniciarBot() {
 iniciarBot().catch(err => {
   console.error('❌ Error fatal:', err.message)
 })
+
