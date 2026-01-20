@@ -113,11 +113,6 @@ async function iniciarBot() {
       return
     }
 
-    if (msg.key.fromMe) {
-      console.log('⏭️  Ignorado: mensaje propio')
-      return
-    }
-
     const texto =
       msg.message.conversation ||
       msg.message.extendedTextMessage?.text ||
@@ -129,9 +124,13 @@ async function iniciarBot() {
     console.log('')
 
     const grupoActual = msg.key.remoteJid
+    const comando = texto.toLowerCase().trim()
 
-    // Comandos de configuración
-    if (texto.toLowerCase().trim() === '!setorigen') {
+    // ========================================
+    // COMANDOS (RESPONDEN INCLUSO A TUS PROPIOS MENSAJES)
+    // ========================================
+    
+    if (comando === '!setorigen') {
       console.log('⚙️  Ejecutando: !setorigen')
       GRUPO_ORIGEN = grupoActual
       await sock.sendMessage(grupoActual, {
@@ -144,7 +143,7 @@ async function iniciarBot() {
       return
     }
 
-    if (texto.toLowerCase().trim() === '!setdestino') {
+    if (comando === '!setdestino') {
       console.log('⚙️  Ejecutando: !setdestino')
       GRUPO_DESTINO = grupoActual
       await sock.sendMessage(grupoActual, {
@@ -156,7 +155,24 @@ async function iniciarBot() {
       return
     }
 
-    if (texto.toLowerCase().trim() === '!logout') {
+    if (comando === '!status') {
+      console.log('⚙️  Ejecutando: !status')
+      const origenConfig = GRUPO_ORIGEN ? `✅ Configurado` : '❌ No configurado'
+      const destinoConfig = GRUPO_DESTINO ? `✅ Configurado` : '❌ No configurado'
+      
+      await sock.sendMessage(grupoActual, {
+        text: `📊 *Estado del Bot*\n\n` +
+              `Grupo Origen: ${origenConfig}\n` +
+              `Grupo Destino: ${destinoConfig}\n\n` +
+              `Palabras clave (reenvío): ${PALABRAS_CLAVE.join(', ')}\n` +
+              `Palabras clave (cancelación): ${PALABRAS_CANCELACION.join(', ')}\n\n` +
+              `Pedidos registrados: ${mensajesEnviados.size}\n\n` +
+              `${GRUPO_ORIGEN && GRUPO_DESTINO ? '🟢 Bot listo para funcionar' : '🔴 Configura ambos grupos'}`
+      })
+      return
+    }
+
+    if (comando === '!logout') {
       console.log('🚪 Cerrando sesión...')
       await sock.sendMessage(grupoActual, {
         text: '👋 Bot desconectado. Elimina la carpeta "auth" si quieres reconectar con otro número.'
@@ -166,20 +182,13 @@ async function iniciarBot() {
       process.exit(0)
     }
 
-    if (texto.toLowerCase().trim() === '!status') {
-      console.log('⚙️  Ejecutando: !status')
-      const origenConfig = GRUPO_ORIGEN ? `✅ ${GRUPO_ORIGEN}` : '❌ No configurado'
-      const destinoConfig = GRUPO_DESTINO ? `✅ ${GRUPO_DESTINO}` : '❌ No configurado'
-      
-      await sock.sendMessage(grupoActual, {
-        text: `📊 *Estado del Bot*\n\n` +
-              `Grupo Origen:\n${origenConfig}\n\n` +
-              `Grupo Destino:\n${destinoConfig}\n\n` +
-              `Palabras clave (reenvío): ${PALABRAS_CLAVE.join(', ')}\n` +
-              `Palabras clave (cancelación): ${PALABRAS_CANCELACION.join(', ')}\n\n` +
-              `Pedidos registrados: ${mensajesEnviados.size}\n\n` +
-              `${GRUPO_ORIGEN && GRUPO_DESTINO ? '🟢 Bot listo para funcionar' : '🔴 Configura ambos grupos'}`
-      })
+    // ========================================
+    // LÓGICA DE REENVÍO (IGNORA TUS PROPIOS MENSAJES)
+    // ========================================
+    
+    // A partir de aquí SÍ ignoramos mensajes propios
+    if (msg.key.fromMe) {
+      console.log('⏭️  Ignorado: mensaje propio (no es comando)')
       return
     }
 
@@ -202,9 +211,6 @@ async function iniciarBot() {
           console.log('🚫 Detectada cancelación')
           const nombre = msg.pushName || 'Usuario'
           
-          // Intentar extraer información del pedido cancelado
-          let infoPedido = texto
-          
           // Buscar si menciona algún pedido anterior
           const match = texto.match(/pedido\s*#?\s*(\d+)|solicitud\s*#?\s*(\d+)/i)
           const numeroPedido = match ? (match[1] || match[2]) : null
@@ -216,7 +222,7 @@ async function iniciarBot() {
                   `📝 Motivo/Detalles:\n${texto}`
           })
 
-          // ✅ CONFIRMACIÓN EN GRUPO ORIGEN
+          // Confirmación en grupo origen
           await sock.sendMessage(GRUPO_ORIGEN, {
             text: '✅ Cancelación notificada correctamente'
           })
@@ -247,7 +253,7 @@ async function iniciarBot() {
                   `${texto}`
           })
 
-          // ✅ CONFIRMACIÓN EN GRUPO ORIGEN
+          // Confirmación en grupo origen
           await sock.sendMessage(GRUPO_ORIGEN, {
             text: '✅ Se pasó su pedido'
           })
@@ -274,19 +280,4 @@ async function iniciarBot() {
 iniciarBot().catch(err => {
   console.error('❌ Error fatal:', err.message)
 })
-```
 
----
-
-## ✅ Cambios agregados:
-
-### 1. **Para pedidos (solicitudes):**
-Cuando alguien escribe con palabras clave, ahora responde:
-```
-✅ Se pasó su pedido
-```
-
-### 2. **Para cancelaciones:**
-Cuando alguien cancela, ahora responde:
-```
-✅ Cancelación notificada correctamente
