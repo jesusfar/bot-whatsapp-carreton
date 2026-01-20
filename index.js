@@ -48,14 +48,19 @@ async function iniciarBot() {
     const { connection, lastDisconnect, qr } = update
 
     if (qr) {
-      console.clear()
-      console.log('\n========== CÓDIGO QR ==========')
+      console.log('\n')
+      console.log('='.repeat(50))
+      console.log('CÓDIGO QR GENERADO')
+      console.log('='.repeat(50))
+      console.log('\n📱 Copia el código de abajo y pégalo en https://qr.io/\n')
       console.log(qr)
-      console.log('================================\n')
-      console.log('📱 Copia el código de arriba y pégalo en https://qr.io/ para generar el QR\n')
+      console.log('\n')
+      console.log('='.repeat(50))
+      console.log('\n')
+      
       qrcode.generate(qr, { small: true })
-      console.log('\n📱 Escaneá este QR con WhatsApp')
-      console.log('⏰ Tienes 45 segundos\n')
+      
+      console.log('\n⏰ Tienes 45 segundos para escanear\n')
     }
 
     if (connection === 'close') {
@@ -76,9 +81,11 @@ async function iniciarBot() {
     }
 
     if (connection === 'open') {
-      console.clear()
-      console.log('✅ WhatsApp conectado\n')
-      console.log('📋 Comandos disponibles:')
+      console.log('\n')
+      console.log('='.repeat(50))
+      console.log('✅ WhatsApp conectado')
+      console.log('='.repeat(50))
+      console.log('\n📋 Comandos disponibles:')
       console.log('   !setorigen  - Configura grupo origen')
       console.log('   !setdestino - Configura grupo destino')
       console.log('   !status     - Ver configuración')
@@ -280,4 +287,5 @@ async function iniciarBot() {
 iniciarBot().catch(err => {
   console.error('❌ Error fatal:', err.message)
 })
+
 
