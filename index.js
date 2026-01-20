@@ -216,6 +216,11 @@ async function iniciarBot() {
                   `📝 Motivo/Detalles:\n${texto}`
           })
 
+          // ✅ CONFIRMACIÓN EN GRUPO ORIGEN
+          await sock.sendMessage(GRUPO_ORIGEN, {
+            text: '✅ Cancelación notificada correctamente'
+          })
+
           console.log(`🚫 Cancelación notificada - Usuario: ${nombre}`)
           return
         }
@@ -242,6 +247,11 @@ async function iniciarBot() {
                   `${texto}`
           })
 
+          // ✅ CONFIRMACIÓN EN GRUPO ORIGEN
+          await sock.sendMessage(GRUPO_ORIGEN, {
+            text: '✅ Se pasó su pedido'
+          })
+
           // Guardar referencia del mensaje
           mensajesEnviados.set(pedidoId, {
             nombre,
@@ -264,4 +274,19 @@ async function iniciarBot() {
 iniciarBot().catch(err => {
   console.error('❌ Error fatal:', err.message)
 })
+```
 
+---
+
+## ✅ Cambios agregados:
+
+### 1. **Para pedidos (solicitudes):**
+Cuando alguien escribe con palabras clave, ahora responde:
+```
+✅ Se pasó su pedido
+```
+
+### 2. **Para cancelaciones:**
+Cuando alguien cancela, ahora responde:
+```
+✅ Cancelación notificada correctamente
