@@ -1,0 +1,76 @@
+# Configuración de Fly.io para Bot WhatsApp Carretón
+# Documentación: https://fly.io/docs/reference/configuration/
+
+# Nombre de la aplicación (cámbialo por el tuyo)
+app = 'bot-whatsapp-carreton'
+
+# Región principal (cambia según tu ubicación)
+# scl = Santiago, Chile
+# gru = São Paulo, Brasil
+# mia = Miami, USA
+# mad = Madrid, España
+primary_region = 'scl'
+
+# Configuración de build
+[build]
+  # Fly.io auto-detectará y usará el Dockerfile generado
+
+# Variables de entorno
+[env]
+  PORT = '8080'
+  NODE_ENV = 'production'
+  # Agrega más variables aquí si las necesitas
+  # LOG_LEVEL = 'info'
+
+# Configuración del servicio HTTP
+[http_service]
+  internal_port = 8080
+  force_https = true
+  
+  # IMPORTANTE: Deshabilitar auto-stop para mantener bot 24/7
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+  
+  # Procesos a ejecutar
+  processes = ['app']
+
+  # Configuración de concurrencia
+  [http_service.concurrency]
+    type = 'connections'
+    hard_limit = 25
+    soft_limit = 20
+
+# Configuración de la máquina virtual
+[[vm]]
+  # Memoria: 256MB es suficiente para el bot
+  # Puedes aumentar a 512mb si experimentas problemas
+  memory = '256mb'
+  
+  # CPU compartida (más barato)
+  cpu_kind = 'shared'
+  cpus = 1
+
+# MONTAJE DEL VOLUMEN PERSISTENTE
+# CRÍTICO: Sin esto, la sesión se perderá en cada deploy
+[mounts]
+  source = 'whatsapp_data'  # Nombre del volumen creado
+  destination = '/data'      # Ruta donde se monta
+
+# Health checks (opcional pero recomendado)
+[[services.http_checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/health"
+  protocol = "http"
+
+# Configuración de restart policy
+[restart]
+  policy = 'always'
+  max_retries = 10
+
+# Configuración de deploy
+[deploy]
+  strategy = "rolling"
